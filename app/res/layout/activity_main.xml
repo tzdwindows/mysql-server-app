@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/background"
+    android:padding="12dp">
+
+    <!-- Header Section -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingBottom="8dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="MySQL Server &amp; Lab"
+                android:textColor="@color/text_primary"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvServerSub"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Native arm64-v8a • Port 3306"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Status Badge -->
+        <TextView
+            android:id="@+id/tvServerStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:background="@color/surface"
+            android:text="STOPPED"
+            android:textColor="@color/accent_red"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Controls Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingBottom="8dp">
+
+        <Button
+            android:id="@+id/btnStartServer"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="Start Server"
+            android:textColor="#FFFFFF"
+            android:background="@color/accent_green"
+            android:textSize="13sp"
+            android:layout_marginEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnStopServer"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="Stop"
+            android:textColor="#FFFFFF"
+            android:background="@color/accent_red"
+            android:textSize="13sp"
+            android:layout_marginEnd="4dp"
+            android:enabled="false" />
+
+        <Button
+            android:id="@+id/btnToggleLog"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="0.8"
+            android:text="Logs"
+            android:textColor="@color/text_primary"
+            android:background="@color/surface_light"
+            android:textSize="13sp"
+            android:layout_marginEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnInitDb"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="0.9"
+            android:text="Re-Init"
+            android:textColor="@color/text_primary"
+            android:background="@color/surface"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <!-- Collapsible Log Card -->
+    <LinearLayout
+        android:id="@+id/cardServerLog"
+        android:layout_width="match_parent"
+        android:layout_height="140dp"
+        android:orientation="vertical"
+        android:background="@color/code_bg"
+        android:padding="8dp"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="mysqld Server Log"
+            android:textColor="@color/secondary"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:paddingBottom="4dp" />
+
+        <ScrollView
+            android:id="@+id/scrollLog"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <TextView
+                android:id="@+id/tvLogContent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#CBD5E1"
+                android:fontFamily="monospace"
+                android:textSize="10sp"
+                android:text="[Ready to start server]\n" />
+        </ScrollView>
+    </LinearLayout>
+
+    <!-- Quick SQL Query Chips Horizontal Scroll -->
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingBottom="6dp">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/chipShowDbs"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="SHOW DATABASES"
+                android:textSize="11sp"
+                android:textColor="@color/text_primary"
+                android:background="@color/surface"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:layout_marginEnd="6dp" />
+
+            <Button
+                android:id="@+id/chipShowTables"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="SHOW TABLES"
+                android:textSize="11sp"
+                android:textColor="@color/text_primary"
+                android:background="@color/surface"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:layout_marginEnd="6dp" />
+
+            <Button
+                android:id="@+id/chipCreateDb"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="CREATE LAB DB"
+                android:textSize="11sp"
+                android:textColor="@color/text_primary"
+                android:background="@color/surface"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:layout_marginEnd="6dp" />
+
+            <Button
+                android:id="@+id/chipInsertData"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="INSERT SAMPLE DATA"
+                android:textSize="11sp"
+                android:textColor="@color/text_primary"
+                android:background="@color/surface"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:layout_marginEnd="6dp" />
+
+            <Button
+                android:id="@+id/chipSelect"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="SELECT QUERY"
+                android:textSize="11sp"
+                android:textColor="@color/text_primary"
+                android:background="@color/surface"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:layout_marginEnd="6dp" />
+
+            <Button
+                android:id="@+id/chipStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="SERVER STATUS"
+                android:textSize="11sp"
+                android:textColor="@color/text_primary"
+                android:background="@color/surface"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp" />
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <!-- SQL Editor Card -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@color/surface"
+        android:padding="8dp"
+        android:layout_marginBottom="8dp">
+
+        <EditText
+            android:id="@+id/etQuery"
+            android:layout_width="match_parent"
+            android:layout_height="80dp"
+            android:background="@color/code_bg"
+            android:fontFamily="monospace"
+            android:gravity="top|start"
+            android:hint="@string/sql_placeholder"
+            android:inputType="textMultiLine|textNoSuggestions"
+            android:padding="8dp"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_secondary"
+            android:textSize="13sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingTop="6dp">
+
+            <Button
+                android:id="@+id/btnExecute"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_weight="1"
+                android:background="@color/primary"
+                android:text="Execute SQL ▶"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnClearSql"
+                android:layout_width="wrap_content"
+                android:layout_height="38dp"
+                android:background="@color/surface_light"
+                android:text="Clear"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:layout_marginStart="8dp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Query Info / Status Line -->
+    <TextView
+        android:id="@+id/tvExecutionInfo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="@color/secondary"
+        android:textSize="12sp"
+        android:paddingBottom="4dp"
+        android:visibility="gone" />
+
+    <!-- Query Results View (Header + Table) -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="@color/surface"
+        android:padding="4dp">
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true">
+
+            <HorizontalScrollView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content">
+
+                <TableLayout
+                    android:id="@+id/tableResult"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:stretchColumns="*" />
+            </HorizontalScrollView>
+        </ScrollView>
+
+        <TextView
+            android:id="@+id/tvEmptyResult"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="Execute a query to view results"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp" />
+    </FrameLayout>
+</LinearLayout>

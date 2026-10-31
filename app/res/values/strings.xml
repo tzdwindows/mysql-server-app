@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MySQL Server Lab</string>
+    <string name="server_status">Server Status</string>
+    <string name="status_stopped">STOPPED</string>
+    <string name="status_starting">STARTING…</string>
+    <string name="status_running">RUNNING (127.0.0.1:3306)</string>
+    <string name="btn_start">Start Server</string>
+    <string name="btn_stop">Stop Server</string>
+    <string name="btn_init">Re-Init DB</string>
+    <string name="btn_run_sql">Execute SQL</string>
+    <string name="btn_clear">Clear</string>
+    <string name="sql_placeholder">Enter SQL query here (e.g. SHOW DATABASES;)</string>
+</resources>

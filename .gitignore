@@ -1,0 +1,16 @@
+# Source tree of upstream MySQL (6+ GB)
+mysql-server/
+
+# Build outputs
+app/build/
+*.idsig
+*.apk
+*.log
+.vs/
+.idea/
+*.user
+*.suo
+
+# Temporary files
+*.tmp
+*~
