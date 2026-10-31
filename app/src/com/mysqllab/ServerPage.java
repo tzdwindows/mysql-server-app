@@ -34,6 +34,7 @@ public class ServerPage extends Page {
     private final FancyButton stopBtn;
     private final FancyButton configBtn;
     private final FancyButton initBtn;
+    private final FancyButton heroResetBtn;
     private final Card hero;
     private final LinearLayout metrics;
     private final Card info;
@@ -146,26 +147,22 @@ public class ServerPage extends Page {
             }
         });
 
-        initBtn = new FancyButton(c, "重置", IconView.REFRESH, FancyButton.SECONDARY);
-        initBtn.setTooltip("重置数据库：删除全部数据并重新初始化");
-        initBtn.setOnClickListener(new View.OnClickListener() {
+        btns.addView(startBtn, Ui.lp(-2, Ui.dp(c, 40)));
+        btns.addView(stopBtn, Ui.lpm(-2, Ui.dp(c, 40), Ui.dp(c, 10), 0, 0, 0));
+        btns.addView(configBtn, Ui.lpm(-2, Ui.dp(c, 40), Ui.dp(c, 10), 0, 0, 0));
+        hero.addView(btns, new LinearLayout.LayoutParams(-2, -2));
+
+        // Sub-action: Reset Database (Centered subtle ghost link button on its own row, never clipped)
+        heroResetBtn = new FancyButton(c, "重置数据库实例", IconView.REFRESH, FancyButton.GHOST);
+        heroResetBtn.setCompact(true);
+        heroResetBtn.setTooltip("重置数据库：删除全部数据并重新初始化");
+        heroResetBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Dialogs.confirm(c, "重置数据库", "这会删除所有数据库与数据，并重新初始化一个全新的 MySQL 实例。此操作不可恢复。",
-                        "确认重置", true, new Runnable() {
-                            @Override
-                            public void run() {
-                                host.reinitServer();
-                            }
-                        });
+                showResetConfirmDialog(c, host);
             }
         });
-
-        btns.addView(startBtn, Ui.lp(-2, Ui.dp(c, 40)));
-        btns.addView(stopBtn, Ui.lpm(-2, Ui.dp(c, 40), Ui.dp(c, 8), 0, 0, 0));
-        btns.addView(configBtn, Ui.lpm(-2, Ui.dp(c, 40), Ui.dp(c, 8), 0, 0, 0));
-        btns.addView(initBtn, Ui.lpm(-2, Ui.dp(c, 40), Ui.dp(c, 8), 0, 0, 0));
-        hero.addView(btns, new LinearLayout.LayoutParams(-2, -2));
+        hero.addView(heroResetBtn, Ui.lpm(-2, Ui.dp(c, 28), 0, Ui.dp(c, 10), 0, 0));
 
         // ---- metrics
         metrics = new LinearLayout(c);
@@ -194,7 +191,18 @@ public class ServerPage extends Page {
 
         // ---- info
         info = new Card(c);
-        info.addView(Card.headerRow(c, IconView.INFO, Ui.ACCENT, "连接信息"));
+        LinearLayout ih = Card.headerRow(c, IconView.INFO, Ui.ACCENT, "连接信息");
+        initBtn = new FancyButton(c, "重置数据", IconView.REFRESH, FancyButton.SECONDARY);
+        initBtn.setCompact(true);
+        initBtn.setTooltip("重置数据库：删除全部数据并重新初始化");
+        initBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showResetConfirmDialog(c, host);
+            }
+        });
+        ih.addView(initBtn, Ui.lp(-2, Ui.dp(c, 28)));
+        info.addView(ih);
         vVersion = Ui.label(c, "—", 13f, Ui.TEXT, false);
         info.addView(infoRow(c, "版本", vVersion));
 
@@ -269,6 +277,16 @@ public class ServerPage extends Page {
         vUser.setText(cfg.getUser() + (cfg.getPassword().isEmpty() ? " (无密码)" : " (已设密码)"));
         String extra = cfg.getExtraArgs().trim();
         vArgs.setText(extra.isEmpty() ? "(默认参数)" : extra.replace("\n", " "));
+    }
+
+    private static void showResetConfirmDialog(final Context c, final AppHost host) {
+        Dialogs.confirm(c, "重置数据库", "这会删除所有数据库与数据，并重新初始化一个全新的 MySQL 实例。此操作不可恢复。",
+                "确认重置", true, new Runnable() {
+                    @Override
+                    public void run() {
+                        host.reinitServer();
+                    }
+                });
     }
 
     private Card tile(Context c, int icon, int color, String label, TextView value, SparkView sp) {
@@ -436,24 +454,25 @@ public class ServerPage extends Page {
         sub.setText(subText);
         orb.setKind(kind, color);
 
+        boolean canReset = (s == ServerState.STOPPED || s == ServerState.ERROR);
+        initBtn.setEnabled(canReset);
+        heroResetBtn.setEnabled(canReset);
+
         if (s == ServerState.RUNNING) {
             startBtn.setVisibility(View.GONE);
             stopBtn.setVisibility(View.VISIBLE);
             stopBtn.setEnabled(true);
             configBtn.setEnabled(true);
-            initBtn.setEnabled(false);
         } else if (s == ServerState.STARTING || s == ServerState.INITIALIZING) {
             startBtn.setVisibility(View.VISIBLE);
             startBtn.setEnabled(false);
             stopBtn.setVisibility(View.GONE);
             configBtn.setEnabled(false);
-            initBtn.setEnabled(false);
         } else {
             startBtn.setVisibility(View.VISIBLE);
             startBtn.setEnabled(true);
             stopBtn.setVisibility(View.GONE);
             configBtn.setEnabled(true);
-            initBtn.setEnabled(true);
         }
         if (animate && changed) {
             Ui.pop(title);
