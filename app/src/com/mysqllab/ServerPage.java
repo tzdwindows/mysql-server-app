@@ -21,7 +21,10 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** Claude-style minimalist server dashboard: status emblem, controls, live metrics, connection info and log console. */
+/**
+ * Claude-style minimalist server dashboard: status emblem, controls, live metrics, connection info and log console.
+ * Author: tzdwindows 7
+ */
 public class ServerPage extends Page {
 
     private final StatusOrb orb;
@@ -29,6 +32,7 @@ public class ServerPage extends Page {
     private final TextView sub;
     private final FancyButton startBtn;
     private final FancyButton stopBtn;
+    private final FancyButton configBtn;
     private final FancyButton initBtn;
     private final Card hero;
     private final LinearLayout metrics;
@@ -41,13 +45,20 @@ public class ServerPage extends Page {
     private final TextView vQuestions;
     private final TextView vQps;
     private final TextView vVersion;
+    private final TextView vAddress;
+    private final TextView vUser;
+    private final TextView vArgs;
     private final SparkView spark;
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService poller = Executors.newSingleThreadExecutor();
     private final NumberFormat nf = NumberFormat.getIntegerInstance();
     private boolean polling;
-    private long prevQuestions = -1;
+
+    // Filter out internal polling queries from cumulative query count & QPS
+    private long internalPollQueries = 0;
+    private long initialQuestionsOffset = -1;
+    private long prevUserQuestions = -1;
     private long prevTime;
     private long shownThreads;
     private long shownQuestions;
@@ -61,6 +72,8 @@ public class ServerPage extends Page {
                 return;
             }
             if (isShown()) {
+                // Each polling cycle issues 2 internal queries: SHOW GLOBAL STATUS + SELECT VERSION()
+                internalPollQueries += 2;
                 poller.execute(new Runnable() {
                     @Override
                     public void run() {
@@ -100,6 +113,7 @@ public class ServerPage extends Page {
         LinearLayout btns = new LinearLayout(c);
         btns.setOrientation(LinearLayout.HORIZONTAL);
         btns.setGravity(Gravity.CENTER);
+
         startBtn = new FancyButton(c, "启动服务器", IconView.PLAY, FancyButton.PRIMARY);
         startBtn.setTooltip("启动 mysqld (首次会自动初始化数据目录)");
         startBtn.setOnClickListener(new View.OnClickListener() {
@@ -108,6 +122,7 @@ public class ServerPage extends Page {
                 host.startServer();
             }
         });
+
         stopBtn = new FancyButton(c, "停止服务", IconView.STOP, FancyButton.DANGER);
         stopBtn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -115,6 +130,22 @@ public class ServerPage extends Page {
                 host.stopServer();
             }
         });
+
+        configBtn = new FancyButton(c, "参数配置", IconView.SETTINGS, FancyButton.SECONDARY);
+        configBtn.setTooltip("配置端口、地址、账号密码及启动参数");
+        configBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Dialogs.serverConfig(c, new Runnable() {
+                    @Override
+                    public void run() {
+                        refreshConfigDisplay();
+                        host.toast("配置已保存");
+                    }
+                });
+            }
+        });
+
         initBtn = new FancyButton(c, "重置", IconView.REFRESH, FancyButton.SECONDARY);
         initBtn.setTooltip("重置数据库：删除全部数据并重新初始化");
         initBtn.setOnClickListener(new View.OnClickListener() {
@@ -129,9 +160,11 @@ public class ServerPage extends Page {
                         });
             }
         });
+
         btns.addView(startBtn, Ui.lp(-2, Ui.dp(c, 40)));
-        btns.addView(stopBtn, Ui.lpm(-2, Ui.dp(c, 40), Ui.dp(c, 10), 0, 0, 0));
-        btns.addView(initBtn, Ui.lpm(-2, Ui.dp(c, 40), Ui.dp(c, 10), 0, 0, 0));
+        btns.addView(stopBtn, Ui.lpm(-2, Ui.dp(c, 40), Ui.dp(c, 8), 0, 0, 0));
+        btns.addView(configBtn, Ui.lpm(-2, Ui.dp(c, 40), Ui.dp(c, 8), 0, 0, 0));
+        btns.addView(initBtn, Ui.lpm(-2, Ui.dp(c, 40), Ui.dp(c, 8), 0, 0, 0));
         hero.addView(btns, new LinearLayout.LayoutParams(-2, -2));
 
         // ---- metrics
@@ -163,9 +196,17 @@ public class ServerPage extends Page {
         info = new Card(c);
         info.addView(Card.headerRow(c, IconView.INFO, Ui.ACCENT, "连接信息"));
         vVersion = Ui.label(c, "—", 13f, Ui.TEXT, false);
-        info.addView(infoRow(c, "版本", vVersion), Ui.lpm(-1, -2, 0, Ui.dp(c, 8), 0, 0));
-        info.addView(infoRow(c, "地址", "127.0.0.1:3306"));
-        info.addView(infoRow(c, "账号", "root（空密码）"));
+        info.addView(infoRow(c, "版本", vVersion));
+
+        vAddress = Ui.label(c, "127.0.0.1:3306", 13f, Ui.TEXT, false);
+        info.addView(infoRow(c, "地址", vAddress));
+
+        vUser = Ui.label(c, "root (无密码)", 13f, Ui.TEXT, false);
+        info.addView(infoRow(c, "账号", vUser));
+
+        vArgs = Ui.label(c, "(默认参数)", 13f, Ui.TEXT2, false);
+        info.addView(infoRow(c, "启动参数", vArgs));
+
         info.addView(infoRow(c, "架构", "arm64-v8a · Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")"));
         info.addView(infoRow(c, "引擎", "InnoDB · MySQL 8.0.40"));
         info.addView(infoRow(c, "数据目录", host.manager() == null ? "" : new java.io.File(c.getFilesDir(), "data").getAbsolutePath()));
@@ -178,21 +219,28 @@ public class ServerPage extends Page {
         copyLog.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Dialogs.copy(c, "log", logView.getText().toString());
-                host.toast("日志已复制");
+                String text = logView.getText().toString();
+                if (text.length() == 0) {
+                    host.toast("日志为空");
+                    return;
+                }
+                Dialogs.copy(c, "mysql-log", text);
+                host.toast("日志已复制到剪贴板");
             }
         });
-        FancyButton clearLog = new FancyButton(c, "清空", IconView.TRASH, FancyButton.SECONDARY);
+        FancyButton clearLog = new FancyButton(c, "清空", IconView.TRASH, FancyButton.GHOST);
         clearLog.setCompact(true);
         clearLog.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 logView.setText("");
+                host.toast("日志已清空");
             }
         });
-        lh.addView(copyLog, Ui.lpm(-2, Ui.dp(c, 30), 0, 0, Ui.dp(c, 6), 0));
-        lh.addView(clearLog, Ui.lp(-2, Ui.dp(c, 30)));
+        lh.addView(copyLog, Ui.lp(-2, Ui.dp(c, 28)));
+        lh.addView(clearLog, Ui.lpm(-2, Ui.dp(c, 28), Ui.dp(c, 6), 0, 0, 0));
         logCard.addView(lh);
+
         logScroll = new ScrollView(c);
         logScroll.setBackground(Ui.rect(0xFFF4F2EC, Ui.dpf(c, 10), Ui.STROKE, Math.max(1, Ui.dp(c, 1))));
         Ui.clipRound(logScroll, 10);
@@ -212,6 +260,15 @@ public class ServerPage extends Page {
 
         applyState(ServerState.STOPPED, null, false);
         setWide(false);
+        refreshConfigDisplay();
+    }
+
+    public void refreshConfigDisplay() {
+        ServerConfig cfg = ServerConfig.get(getContext());
+        vAddress.setText(cfg.getHost() + ":" + cfg.getPort());
+        vUser.setText(cfg.getUser() + (cfg.getPassword().isEmpty() ? " (无密码)" : " (已设密码)"));
+        String extra = cfg.getExtraArgs().trim();
+        vArgs.setText(extra.isEmpty() ? "(默认参数)" : extra.replace("\n", " "));
     }
 
     private Card tile(Context c, int icon, int color, String label, TextView value, SparkView sp) {
@@ -316,6 +373,7 @@ public class ServerPage extends Page {
 
     @Override
     public void onShown() {
+        refreshConfigDisplay();
         View first = getChildAt(0);
         if (first instanceof android.view.ViewGroup) {
             android.view.ViewGroup g = (android.view.ViewGroup) first;
@@ -325,6 +383,11 @@ public class ServerPage extends Page {
                 Ui.reveal(g, 0);
             }
         }
+        if (state == ServerState.RUNNING && !polling) {
+            polling = true;
+            main.removeCallbacks(pollTick);
+            main.post(pollTick);
+        }
     }
 
     @Override
@@ -333,17 +396,20 @@ public class ServerPage extends Page {
     }
 
     private void applyState(ServerState s, String message, boolean animate) {
-        boolean changed = s != state;
+        boolean changed = (state != s);
         state = s;
-        String t;
+
         int color;
+        String t;
         int kind;
         String subText;
+
+        ServerConfig cfg = ServerConfig.get(getContext());
         if (s == ServerState.RUNNING) {
             t = "运行中";
             color = Ui.GREEN;
             kind = StatusOrb.RUNNING;
-            subText = "127.0.0.1:3306 · root 空密码\n可在「工作台」执行任意 SQL 语句";
+            subText = "MySQL 8.0 服务正常运行\n" + cfg.getHost() + ":" + cfg.getPort() + " · 账号: " + cfg.getUser();
         } else if (s == ServerState.STARTING) {
             t = "启动中";
             color = Ui.ACCENT;
@@ -363,7 +429,7 @@ public class ServerPage extends Page {
             t = "已停止";
             color = Ui.MUTED;
             kind = StatusOrb.STOPPED;
-            subText = "点击「启动服务器」运行 MySQL 8.0\narm64 原生 · 端口 3306";
+            subText = "点击「启动服务器」运行 MySQL 8.0\n端口: " + cfg.getPort() + " · 点击「参数配置」自定义";
         }
         title.setText(t);
         title.setTextColor(color == Ui.MUTED ? Ui.TEXT : color);
@@ -374,16 +440,19 @@ public class ServerPage extends Page {
             startBtn.setVisibility(View.GONE);
             stopBtn.setVisibility(View.VISIBLE);
             stopBtn.setEnabled(true);
+            configBtn.setEnabled(true);
             initBtn.setEnabled(false);
         } else if (s == ServerState.STARTING || s == ServerState.INITIALIZING) {
             startBtn.setVisibility(View.VISIBLE);
             startBtn.setEnabled(false);
             stopBtn.setVisibility(View.GONE);
+            configBtn.setEnabled(false);
             initBtn.setEnabled(false);
         } else {
             startBtn.setVisibility(View.VISIBLE);
             startBtn.setEnabled(true);
             stopBtn.setVisibility(View.GONE);
+            configBtn.setEnabled(true);
             initBtn.setEnabled(true);
         }
         if (animate && changed) {
@@ -391,6 +460,9 @@ public class ServerPage extends Page {
         }
         if (s == ServerState.RUNNING) {
             if (!polling) {
+                internalPollQueries = 0;
+                initialQuestionsOffset = -1;
+                prevUserQuestions = -1;
                 polling = true;
                 main.removeCallbacks(pollTick);
                 main.post(pollTick);
@@ -401,20 +473,23 @@ public class ServerPage extends Page {
             vQuestions.setText("—");
             vQps.setText("—");
             vVersion.setText("—");
-            prevQuestions = -1;
+            prevUserQuestions = -1;
+            internalPollQueries = 0;
+            initialQuestionsOffset = -1;
         }
+        refreshConfigDisplay();
     }
 
     private void applyMetrics(List<QueryResult> rs) {
         if (state != ServerState.RUNNING || rs.isEmpty() || !rs.get(0).isSuccess()) return;
-        long uptime = -1, threads = -1, questions = -1;
+        long uptime = -1, threads = -1, rawQuestions = -1;
         for (List<String> row : rs.get(0).rows) {
             if (row.size() < 2) continue;
             try {
                 long v = Long.parseLong(row.get(0).length() > 0 ? row.get(1) : "0");
                 if ("Uptime".equalsIgnoreCase(row.get(0))) uptime = v;
                 else if ("Threads_connected".equalsIgnoreCase(row.get(0))) threads = v;
-                else if ("Questions".equalsIgnoreCase(row.get(0))) questions = v;
+                else if ("Questions".equalsIgnoreCase(row.get(0))) rawQuestions = v;
             } catch (NumberFormatException ignored) {
             }
         }
@@ -423,17 +498,26 @@ public class ServerPage extends Page {
             animateNumber(vThreads, shownThreads, threads);
             shownThreads = threads;
         }
-        if (questions >= 0) {
-            animateNumber(vQuestions, shownQuestions, questions);
-            shownQuestions = questions;
+        if (rawQuestions >= 0) {
+            // Establish baseline offset so internal polling queries NEVER increment the user count
+            if (initialQuestionsOffset < 0) {
+                initialQuestionsOffset = Math.max(0, rawQuestions - internalPollQueries);
+            }
+            long userQuestions = Math.max(0, rawQuestions - internalPollQueries - initialQuestionsOffset);
+
+            animateNumber(vQuestions, shownQuestions, userQuestions);
+            shownQuestions = userQuestions;
             long now = System.currentTimeMillis();
-            if (prevQuestions >= 0 && now > prevTime) {
-                float qps = (questions - prevQuestions) * 1000f / (now - prevTime);
-                qps = Math.max(0f, qps - 0.8f);
+            if (prevUserQuestions >= 0 && now > prevTime) {
+                float qps = (userQuestions - prevUserQuestions) * 1000f / (now - prevTime);
+                qps = Math.max(0f, qps);
                 vQps.setText(String.format(java.util.Locale.US, "%.1f", qps));
                 spark.push(qps);
+            } else if (prevUserQuestions < 0) {
+                vQps.setText("0.0");
+                spark.push(0f);
             }
-            prevQuestions = questions;
+            prevUserQuestions = userQuestions;
             prevTime = now;
         }
         if (rs.size() > 1 && rs.get(1).isSuccess() && !rs.get(1).rows.isEmpty()) {

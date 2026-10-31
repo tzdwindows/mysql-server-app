@@ -25,8 +25,21 @@ public class SqlSession {
         public long totalMs;
     }
 
-    public static final String HOST = "127.0.0.1";
-    public static final int PORT = 3306;
+    public static String getHost() {
+        return ServerConfig.get(null).getHost();
+    }
+
+    public static int getPort() {
+        return ServerConfig.get(null).getPort();
+    }
+
+    public static String getUser() {
+        return ServerConfig.get(null).getUser();
+    }
+
+    public static String getPassword() {
+        return ServerConfig.get(null).getPassword();
+    }
 
     private final ExecutorService ex = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -57,7 +70,7 @@ public class SqlSession {
                         } catch (Exception e) {
                             dropClient();
                             r = new QueryResult();
-                            r.errorMessage = "无法连接到 MySQL (" + HOST + ":" + PORT + "): " + e.getMessage();
+                            r.errorMessage = "无法连接到 MySQL (" + getHost() + ":" + getPort() + "): " + e.getMessage();
                         }
                         if (!r.isSuccess() && r.errorMessage != null
                                 && (r.errorMessage.startsWith("Not connected")
@@ -107,7 +120,7 @@ public class SqlSession {
                 } catch (Exception e) {
                     dropClient();
                     r = new QueryResult();
-                    r.errorMessage = "无法连接到 MySQL (" + HOST + ":" + PORT + "): " + e.getMessage();
+                    r.errorMessage = "无法连接到 MySQL (" + getHost() + ":" + getPort() + "): " + e.getMessage();
                 }
                 final QueryResult fr = r;
                 main.post(new Runnable() {
@@ -145,8 +158,9 @@ public class SqlSession {
     private void ensure() throws java.io.IOException {
         if (client != null && client.isOpen()) return;
         dropClient();
+        ServerConfig cfg = ServerConfig.get(null);
         MysqlClient c = new MysqlClient();
-        c.connect(HOST, PORT, "root", "", "", 5000);
+        c.connect(cfg.getHost(), cfg.getPort(), cfg.getUser(), cfg.getPassword(), "", 5000);
         c.setReadTimeout(0);
         client = c;
         threadId = c.getThreadId();
@@ -167,8 +181,9 @@ public class SqlSession {
     public static List<QueryResult> oneShot(String... sqls) {
         List<QueryResult> out = new ArrayList<>();
         MysqlClient c = new MysqlClient();
+        ServerConfig cfg = ServerConfig.get(null);
         try {
-            c.connect(HOST, PORT, "root", "", "", 2500);
+            c.connect(cfg.getHost(), cfg.getPort(), cfg.getUser(), cfg.getPassword(), "", 2500);
             c.setReadTimeout(4000);
             for (String s : sqls) out.add(c.executeQuery(s));
         } catch (Exception e) {

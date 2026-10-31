@@ -74,6 +74,7 @@ public class MainActivity extends Activity implements AppHost, StateCallback {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setupWindowStyle();
+        ServerConfig.get(this);
 
         serverManager = new MysqlServerManager(this);
 
@@ -454,7 +455,7 @@ public class MainActivity extends Activity implements AppHost, StateCallback {
         String label;
         if (state == ServerState.RUNNING) {
             dotColor = Ui.GREEN;
-            label = "3306";
+            label = String.valueOf(ServerConfig.get(this).getPort());
         } else if (state == ServerState.STARTING) {
             dotColor = Ui.ACCENT;
             label = "启动中";

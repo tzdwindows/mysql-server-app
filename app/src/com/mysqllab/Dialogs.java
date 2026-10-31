@@ -15,6 +15,7 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -312,6 +313,231 @@ public final class Dialogs {
 
         ref[0] = show(c, p);
         et.requestFocus();
+    }
+
+    /**
+     * Dedicated server & startup parameters configuration panel:
+     * Configure host, port, username, password, and custom mysqld CLI startup arguments.
+     */
+    public static void serverConfig(final Context c, final Runnable onSaved) {
+        final Handle[] ref = new Handle[1];
+        LinearLayout p = panel(c);
+        p.addView(titleRow(c, ref, IconView.SETTINGS, Ui.ACCENT, "服务器与启动配置"));
+
+        TextView sub = Ui.label(c, "可配置服务运行地址、端口、用户密码及 mysqld 启动参数", 12.5f, Ui.TEXT2, false);
+        p.addView(sub, Ui.lpm(-1, -2, 0, Ui.dp(c, 4), 0, Ui.dp(c, 10)));
+
+        DisplayMetrics dm = c.getResources().getDisplayMetrics();
+        MaxScroll sv = new MaxScroll(c, (int) (dm.heightPixels * 0.62f));
+        LinearLayout form = new LinearLayout(c);
+        form.setOrientation(LinearLayout.VERTICAL);
+        sv.addView(form, new ViewGroup.LayoutParams(-1, -2));
+
+        final ServerConfig cfg = ServerConfig.get(c);
+
+        // Host & Port Row
+        LinearLayout netRow = new LinearLayout(c);
+        netRow.setOrientation(LinearLayout.HORIZONTAL);
+
+        LinearLayout hostCol = new LinearLayout(c);
+        hostCol.setOrientation(LinearLayout.VERTICAL);
+        hostCol.addView(Ui.label(c, "服务器地址 (Host)", 12f, Ui.TEXT, true));
+        final EditText etHost = new EditText(c);
+        etHost.setText(cfg.getHost());
+        etHost.setHint("127.0.0.1 或 0.0.0.0");
+        etHost.setHintTextColor(Ui.MUTED);
+        etHost.setTextColor(Ui.TEXT);
+        etHost.setTextSize(13.5f);
+        etHost.setTypeface(Typeface.MONOSPACE);
+        etHost.setSingleLine(true);
+        etHost.setBackground(Ui.rect(Ui.BG2, Ui.dpf(c, 8), Ui.STROKE, 1));
+        etHost.setPadding(Ui.dp(c, 10), Ui.dp(c, 8), Ui.dp(c, 10), Ui.dp(c, 8));
+        hostCol.addView(etHost, Ui.lpm(-1, -2, 0, Ui.dp(c, 4), 0, 0));
+        netRow.addView(hostCol, new LinearLayout.LayoutParams(0, -2, 1.4f));
+
+        LinearLayout portCol = new LinearLayout(c);
+        portCol.setOrientation(LinearLayout.VERTICAL);
+        portCol.addView(Ui.label(c, "端口 (Port)", 12f, Ui.TEXT, true));
+        final EditText etPort = new EditText(c);
+        etPort.setText(String.valueOf(cfg.getPort()));
+        etPort.setHint("3306");
+        etPort.setHintTextColor(Ui.MUTED);
+        etPort.setTextColor(Ui.TEXT);
+        etPort.setTextSize(13.5f);
+        etPort.setTypeface(Typeface.MONOSPACE);
+        etPort.setSingleLine(true);
+        etPort.setInputType(InputType.TYPE_CLASS_NUMBER);
+        etPort.setBackground(Ui.rect(Ui.BG2, Ui.dpf(c, 8), Ui.STROKE, 1));
+        etPort.setPadding(Ui.dp(c, 10), Ui.dp(c, 8), Ui.dp(c, 10), Ui.dp(c, 8));
+        portCol.addView(etPort, Ui.lpm(-1, -2, 0, Ui.dp(c, 4), 0, 0));
+        LinearLayout.LayoutParams portLp = new LinearLayout.LayoutParams(0, -2, 1f);
+        portLp.leftMargin = Ui.dp(c, 8);
+        netRow.addView(portCol, portLp);
+
+        form.addView(netRow, Ui.lpm(-1, -2, 0, 0, 0, Ui.dp(c, 10)));
+
+        // User & Password Row
+        LinearLayout authRow = new LinearLayout(c);
+        authRow.setOrientation(LinearLayout.HORIZONTAL);
+
+        LinearLayout userCol = new LinearLayout(c);
+        userCol.setOrientation(LinearLayout.VERTICAL);
+        userCol.addView(Ui.label(c, "用户名", 12f, Ui.TEXT, true));
+        final EditText etUser = new EditText(c);
+        etUser.setText(cfg.getUser());
+        etUser.setHint("root");
+        etUser.setHintTextColor(Ui.MUTED);
+        etUser.setTextColor(Ui.TEXT);
+        etUser.setTextSize(13.5f);
+        etUser.setTypeface(Typeface.MONOSPACE);
+        etUser.setSingleLine(true);
+        etUser.setBackground(Ui.rect(Ui.BG2, Ui.dpf(c, 8), Ui.STROKE, 1));
+        etUser.setPadding(Ui.dp(c, 10), Ui.dp(c, 8), Ui.dp(c, 10), Ui.dp(c, 8));
+        userCol.addView(etUser, Ui.lpm(-1, -2, 0, Ui.dp(c, 4), 0, 0));
+        authRow.addView(userCol, new LinearLayout.LayoutParams(0, -2, 1f));
+
+        LinearLayout passCol = new LinearLayout(c);
+        passCol.setOrientation(LinearLayout.VERTICAL);
+        passCol.addView(Ui.label(c, "密码", 12f, Ui.TEXT, true));
+        final EditText etPass = new EditText(c);
+        etPass.setText(cfg.getPassword());
+        etPass.setHint("留空为无密码");
+        etPass.setHintTextColor(Ui.MUTED);
+        etPass.setTextColor(Ui.TEXT);
+        etPass.setTextSize(13.5f);
+        etPass.setTypeface(Typeface.MONOSPACE);
+        etPass.setSingleLine(true);
+        etPass.setBackground(Ui.rect(Ui.BG2, Ui.dpf(c, 8), Ui.STROKE, 1));
+        etPass.setPadding(Ui.dp(c, 10), Ui.dp(c, 8), Ui.dp(c, 10), Ui.dp(c, 8));
+        passCol.addView(etPass, Ui.lpm(-1, -2, 0, Ui.dp(c, 4), 0, 0));
+        LinearLayout.LayoutParams passLp = new LinearLayout.LayoutParams(0, -2, 1.2f);
+        passLp.leftMargin = Ui.dp(c, 8);
+        authRow.addView(passCol, passLp);
+
+        form.addView(authRow, Ui.lpm(-1, -2, 0, 0, 0, Ui.dp(c, 12)));
+
+        // Extra Startup Arguments Section
+        form.addView(Ui.label(c, "mysqld 手动启动参数 (CLI Arguments)", 12f, Ui.TEXT, true));
+        TextView argTip = Ui.label(c, "传递给 mysqld 进程的自定义启动参数，以空格或换行分隔：", 11.5f, Ui.TEXT2, false);
+        form.addView(argTip, Ui.lpm(-1, -2, 0, Ui.dp(c, 2), 0, Ui.dp(c, 4)));
+
+        final EditText etArgs = new EditText(c);
+        etArgs.setText(cfg.getExtraArgs());
+        etArgs.setHint("--innodb_buffer_pool_size=64M\n--max_connections=50\n--sql_mode=STRICT_TRANS_TABLES");
+        etArgs.setHintTextColor(Ui.MUTED);
+        etArgs.setTextColor(Ui.TEXT);
+        etArgs.setTextSize(13f);
+        etArgs.setTypeface(Typeface.MONOSPACE);
+        etArgs.setMinLines(3);
+        etArgs.setMaxLines(7);
+        etArgs.setGravity(Gravity.TOP | Gravity.START);
+        etArgs.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        etArgs.setBackground(Ui.rect(Ui.BG2, Ui.dpf(c, 8), Ui.STROKE, 1));
+        etArgs.setPadding(Ui.dp(c, 10), Ui.dp(c, 8), Ui.dp(c, 10), Ui.dp(c, 8));
+        form.addView(etArgs, Ui.lpm(-1, -2, 0, 0, 0, Ui.dp(c, 6)));
+
+        // Quick Preset Chips
+        HorizontalScrollView chipScroll = new HorizontalScrollView(c);
+        chipScroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout chips = new LinearLayout(c);
+        chips.setOrientation(LinearLayout.HORIZONTAL);
+        chipScroll.addView(chips, new ViewGroup.LayoutParams(-2, -2));
+
+        String[][] presets = {
+                {"+ 缓冲池 64M", "--innodb_buffer_pool_size=64M"},
+                {"+ 缓冲池 128M", "--innodb_buffer_pool_size=128M"},
+                {"+ 最大连接 50", "--max_connections=50"},
+                {"+ 开启通用日志", "--general_log=1"},
+                {"+ 严格模式", "--sql_mode=STRICT_TRANS_TABLES"},
+        };
+        for (final String[] pr : presets) {
+            FancyButton chip = new FancyButton(c, pr[0], -1, FancyButton.SECONDARY);
+            chip.setCompact(true);
+            chip.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    String cur = etArgs.getText().toString();
+                    if (!cur.contains(pr[1])) {
+                        if (cur.length() > 0 && !cur.endsWith(" ") && !cur.endsWith("\n")) {
+                            cur += "\n";
+                        }
+                        cur += pr[1];
+                        etArgs.setText(cur);
+                        etArgs.setSelection(cur.length());
+                    }
+                }
+            });
+            chips.addView(chip, Ui.lpm(-2, Ui.dp(c, 28), 0, 0, Ui.dp(c, 6), 0));
+        }
+        form.addView(chipScroll, Ui.lpm(-1, -2, 0, 0, 0, Ui.dp(c, 6)));
+
+        p.addView(sv, Ui.lpm(-1, -2, 0, 0, 0, 0));
+
+        // Bottom Actions
+        LinearLayout row = buttonRow(c);
+        FancyButton resetBtn = new FancyButton(c, "重置默认", -1, FancyButton.GHOST);
+        resetBtn.setCompact(true);
+        resetBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                etHost.setText(ServerConfig.DEFAULT_HOST);
+                etPort.setText(String.valueOf(ServerConfig.DEFAULT_PORT));
+                etUser.setText(ServerConfig.DEFAULT_USER);
+                etPass.setText(ServerConfig.DEFAULT_PASSWORD);
+                etArgs.setText(ServerConfig.DEFAULT_EXTRA_ARGS);
+            }
+        });
+
+        FancyButton cancel = new FancyButton(c, "取消", -1, FancyButton.SECONDARY);
+        cancel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (ref[0] != null) ref[0].dismiss();
+            }
+        });
+
+        FancyButton save = new FancyButton(c, "保存配置", -1, FancyButton.PRIMARY);
+        save.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String h = etHost.getText().toString().trim();
+                if (h.isEmpty()) h = ServerConfig.DEFAULT_HOST;
+
+                int pt;
+                try {
+                    pt = Integer.parseInt(etPort.getText().toString().trim());
+                    if (pt <= 0 || pt > 65535) throw new NumberFormatException();
+                } catch (Exception e) {
+                    Ui.shake(etPort);
+                    return;
+                }
+
+                String u = etUser.getText().toString().trim();
+                if (u.isEmpty()) u = ServerConfig.DEFAULT_USER;
+
+                String pwd = etPass.getText().toString();
+                String extra = etArgs.getText().toString().trim();
+
+                cfg.setHost(h);
+                cfg.setPort(pt);
+                cfg.setUser(u);
+                cfg.setPassword(pwd);
+                cfg.setExtraArgs(extra);
+                cfg.save(c);
+
+                if (ref[0] != null) ref[0].dismiss();
+                if (onSaved != null) onSaved.run();
+            }
+        });
+
+        row.addView(resetBtn);
+        View spacer = new View(c);
+        row.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1f));
+        row.addView(cancel);
+        row.addView(save, Ui.lpm(-2, -2, Ui.dp(c, 8), 0, 0, 0));
+        p.addView(row);
+
+        ref[0] = show(c, p);
     }
 
     /** Key/value view of one result row with per-field copy and whole-row copy. */

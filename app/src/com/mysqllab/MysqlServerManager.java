@@ -61,15 +61,16 @@ public class MysqlServerManager {
         probeExistingServer();
     }
 
-    /** Check if mysqld from a previous session is already alive on 127.0.0.1:3306. */
+    /** Check if mysqld from a previous session is already alive on the configured host:port. */
     public void probeExistingServer() {
         executor.execute(new Runnable() {
             @Override
             public void run() {
-                if (checkPortAvailable("127.0.0.1", 3306, 350)) {
+                ServerConfig cfg = ServerConfig.get(context);
+                if (checkPortAvailable(cfg.getHost(), cfg.getPort(), 350)) {
                     if (currentState != ServerState.RUNNING) {
-                        log("[Server] 检测到后台已有运行中的 MySQL 实例 (127.0.0.1:3306)，已自动接管。");
-                        setState(ServerState.RUNNING, "Server running on 127.0.0.1:3306");
+                        log("[Server] 检测到后台已有运行中的 MySQL 实例 (" + cfg.getHost() + ":" + cfg.getPort() + ")，已自动接管。");
+                        setState(ServerState.RUNNING, "Server running on " + cfg.getHost() + ":" + cfg.getPort());
                     }
                 }
             }
@@ -161,11 +162,24 @@ public class MysqlServerManager {
     }
 
     public void writeConfigFile() throws IOException {
+        ServerConfig cfg = ServerConfig.get(context);
+        String host = cfg.getHost();
+        int port = cfg.getPort();
+        String user = cfg.getUser();
+        String pass = cfg.getPassword();
+        String escUser = user.replace("'", "''");
+        String escPass = pass.replace("'", "''");
+
         File initSqlFile = new File(baseDir, "init.sql");
-        String initSql = "CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY '';\n"
-                + "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;\n"
-                + "CREATE USER IF NOT EXISTS 'root'@'127.0.0.1' IDENTIFIED BY '';\n"
-                + "GRANT ALL PRIVILEGES ON *.* TO 'root'@'127.0.0.1' WITH GRANT OPTION;\n"
+        String initSql = "CREATE USER IF NOT EXISTS '" + escUser + "'@'%' IDENTIFIED BY '" + escPass + "';\n"
+                + "ALTER USER '" + escUser + "'@'%' IDENTIFIED BY '" + escPass + "';\n"
+                + "GRANT ALL PRIVILEGES ON *.* TO '" + escUser + "'@'%' WITH GRANT OPTION;\n"
+                + "CREATE USER IF NOT EXISTS '" + escUser + "'@'127.0.0.1' IDENTIFIED BY '" + escPass + "';\n"
+                + "ALTER USER '" + escUser + "'@'127.0.0.1' IDENTIFIED BY '" + escPass + "';\n"
+                + "GRANT ALL PRIVILEGES ON *.* TO '" + escUser + "'@'127.0.0.1' WITH GRANT OPTION;\n"
+                + "CREATE USER IF NOT EXISTS '" + escUser + "'@'localhost' IDENTIFIED BY '" + escPass + "';\n"
+                + "ALTER USER '" + escUser + "'@'localhost' IDENTIFIED BY '" + escPass + "';\n"
+                + "GRANT ALL PRIVILEGES ON *.* TO '" + escUser + "'@'localhost' WITH GRANT OPTION;\n"
                 + "FLUSH PRIVILEGES;\n";
         try (FileWriter writer = new FileWriter(initSqlFile)) {
             writer.write(initSql);
@@ -180,8 +194,8 @@ public class MysqlServerManager {
                 + "character-sets-dir = " + new File(shareDir, "charsets").getAbsolutePath() + "\n"
                 + "socket = " + new File(tmpDir, "mysql.sock").getAbsolutePath() + "\n"
                 + "pid-file = " + pidFile.getAbsolutePath() + "\n"
-                + "port = 3306\n"
-                + "bind-address = 127.0.0.1\n"
+                + "port = " + port + "\n"
+                + "bind-address = " + host + "\n"
                 + "mysqlx = OFF\n"
                 + "init-file = " + initSqlFile.getAbsolutePath() + "\n"
                 + "default_storage_engine = InnoDB\n"
@@ -271,12 +285,15 @@ public class MysqlServerManager {
     void startServerSync() {
         try {
             isStopping.set(false);
-            setState(ServerState.STARTING, "Starting MySQL Server…");
+            ServerConfig cfg = ServerConfig.get(context);
+            String host = cfg.getHost();
+            int port = cfg.getPort();
+            setState(ServerState.STARTING, "Starting MySQL Server (" + host + ":" + port + ")…");
 
-            // 1. If an existing mysqld instance is already listening on 3306, adopt it!
-            if (checkPortAvailable("127.0.0.1", 3306, 400)) {
-                log("[Server] 端口 3306 已有正在运行的 MySQL 实例，已直接连接复用 (避免 ibdata1 锁冲突)。");
-                setState(ServerState.RUNNING, "Server running on 127.0.0.1:3306");
+            // 1. If an existing mysqld instance is already listening on the configured port, adopt it!
+            if (checkPortAvailable(host, port, 400)) {
+                log("[Server] 端口 " + port + " 已有正在运行的 MySQL 实例，已直接连接复用 (避免 ibdata1 锁冲突)。");
+                setState(ServerState.RUNNING, "Server running on " + host + ":" + port);
                 return;
             }
 
@@ -291,7 +308,7 @@ public class MysqlServerManager {
                 if (!initializeDatabaseSync()) {
                     return;
                 }
-                setState(ServerState.STARTING, "Starting MySQL Server…");
+                setState(ServerState.STARTING, "Starting MySQL Server (" + host + ":" + port + ")…");
             }
 
             extractAssetsIfNeeded();
@@ -304,11 +321,21 @@ public class MysqlServerManager {
                 return;
             }
 
-            log("[Server] Launching: " + mysqld.getAbsolutePath() + " --defaults-file=" + configFile.getAbsolutePath());
-            ProcessBuilder pb = new ProcessBuilder(
-                    mysqld.getAbsolutePath(),
-                    "--defaults-file=" + configFile.getAbsolutePath()
-            );
+            List<String> cmd = new ArrayList<>();
+            cmd.add(mysqld.getAbsolutePath());
+            cmd.add("--defaults-file=" + configFile.getAbsolutePath());
+            for (String extra : cfg.getExtraArgsList()) {
+                cmd.add(extra);
+            }
+
+            StringBuilder sbCmd = new StringBuilder();
+            for (int i = 0; i < cmd.size(); i++) {
+                if (i > 0) sbCmd.append(" ");
+                sbCmd.append(cmd.get(i));
+            }
+            log("[Server] Launching: " + sbCmd.toString());
+
+            ProcessBuilder pb = new ProcessBuilder(cmd);
             String nativeDir = context.getApplicationInfo().nativeLibraryDir;
             pb.environment().put("LD_LIBRARY_PATH", nativeDir + ":/system/lib64:/vendor/lib64");
             pb.redirectErrorStream(true);
@@ -327,7 +354,7 @@ public class MysqlServerManager {
                 } catch (IllegalThreadStateException notExited) {
                 }
 
-                if (checkPortAvailable("127.0.0.1", 3306, 500)) {
+                if (checkPortAvailable(host, port, 500)) {
                     ready = true;
                     break;
                 }
@@ -335,11 +362,11 @@ public class MysqlServerManager {
             }
 
             if (ready) {
-                log("[Server] Ready for connections on 127.0.0.1:3306");
-                setState(ServerState.RUNNING, "Server running on 127.0.0.1:3306");
+                log("[Server] Ready for connections on " + host + ":" + port);
+                setState(ServerState.RUNNING, "Server running on " + host + ":" + port);
             } else if (!isStopping.get()) {
-                log("[Server] Server did not open port 3306 in time.");
-                setState(ServerState.ERROR, "Startup timed out waiting for port 3306");
+                log("[Server] Server did not open port " + port + " in time.");
+                setState(ServerState.ERROR, "Startup timed out waiting for port " + port);
             }
 
         } catch (Exception e) {
@@ -357,11 +384,15 @@ public class MysqlServerManager {
         isStopping.set(true);
         log("[Server] Stopping MySQL Server…");
 
-        // Try SQL SHUTDOWN first if port 3306 is open
-        if (checkPortAvailable("127.0.0.1", 3306, 250)) {
+        ServerConfig cfg = ServerConfig.get(context);
+        String host = cfg.getHost();
+        int port = cfg.getPort();
+
+        // Try SQL SHUTDOWN first if port is open
+        if (checkPortAvailable(host, port, 250)) {
             try {
                 MysqlClient c = new MysqlClient();
-                c.connect("127.0.0.1", 3306, "root", "", "", 1500);
+                c.connect(host, port, cfg.getUser(), cfg.getPassword(), "", 1500);
                 c.executeQuery("SHUTDOWN");
                 c.close();
             } catch (Exception ignored) {}

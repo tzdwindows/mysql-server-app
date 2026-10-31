@@ -13,7 +13,7 @@ public class IconView extends View {
     public static final int SERVER = 0, TERMINAL = 1, DATABASE = 2, INFO = 3, PLAY = 4, STOP = 5,
             REFRESH = 6, TRASH = 7, TABLE = 8, HISTORY = 9, COPY = 10, BOLT = 11, CHEVRON_RIGHT = 12,
             CHEVRON_DOWN = 13, CLOSE = 14, USER = 15, CHIP = 16, POWER = 17, CHECK = 18, ALERT = 19,
-            PLUS = 20, KEYBOARD = 21, MOUSE = 22, VIEW = 23, CODE = 24;
+            PLUS = 20, KEYBOARD = 21, MOUSE = 22, VIEW = 23, CODE = 24, SETTINGS = 25;
 
     private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -234,6 +234,16 @@ public class IconView extends View {
                 p.moveTo(16, 7); p.lineTo(21, 12); p.lineTo(16, 17);
                 c.drawPath(p, stroke);
                 c.drawLine(13.5f, 5, 10.5f, 19, stroke);
+                break;
+            case SETTINGS:
+                c.drawCircle(12, 12, 3.4f, stroke);
+                for (int i = 0; i < 6; i++) {
+                    c.save();
+                    c.rotate(i * 60, 12, 12);
+                    c.drawLine(12, 3.8f, 12, 6.4f, stroke);
+                    c.restore();
+                }
+                c.drawCircle(12, 12, 7.8f, stroke);
                 break;
             default:
                 break;
